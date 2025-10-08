@@ -12,6 +12,7 @@ import RoleManagement from "./components/HrDashboard/RoleManagement.jsx";
 import ApplicationsReview from "./components/HrDashboard/Applications.jsx";
 import EmployeeAnalytics from "./components/HrDashboard/EmployeeAnalytics.jsx";
 import ResumeAnalysisPage from "./components/StDashboard/ResumeAnalysisPage.jsx";
+import MySkills from "./components/StDashboard/MySkills.jsx";
 
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
         <Route path="/signin" element={<Signin />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/dashboard" element={<Stdashboard />} />
+        <Route path="/skills" element={<MySkills />} />
         <Route path="/profile" element={<ResumeAnalysisPage />} />
         <Route path="/skillgap" element={<SkillGapAnalysis />} />
         <Route path="/recommendations" element={<Recommendations />} />

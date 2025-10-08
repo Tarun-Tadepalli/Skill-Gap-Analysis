@@ -1,0 +1,86 @@
+package com.cp.workskillai.controller;
+
+import com.cp.workskillai.dto.SignUpRequest;
+import com.cp.workskillai.dto.SignUpResponse;
+import com.cp.workskillai.service.StudentService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@Slf4j
+@RestController
+@RequestMapping("/api/auth")
+@RequiredArgsConstructor
+@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:5173"})
+public class AuthController {
+
+    private final StudentService studentService;
+
+    @PostMapping("/signup")
+    public ResponseEntity<SignUpResponse> registerStudent(
+            @Valid @RequestBody SignUpRequest signUpRequest) {
+        
+        log.info("Received signup request for email: {}", signUpRequest.getEmail());
+        
+        try {
+            SignUpResponse response = studentService.registerStudent(signUpRequest);
+            
+            if (response.isSuccess()) {
+                log.info("Signup successful for email: {}", signUpRequest.getEmail());
+                return ResponseEntity.ok(response);
+            } else {
+                log.warn("Signup failed for email: {} - {}", signUpRequest.getEmail(), response.getMessage());
+                return ResponseEntity.badRequest().body(response);
+            }
+        } catch (Exception e) {
+            log.error("Server error during signup for email: {}", signUpRequest.getEmail(), e);
+            return ResponseEntity.internalServerError().body(
+                new SignUpResponse(false, "Internal server error", null, null, null)
+            );
+        }
+    }
+
+    @GetMapping("/verify-email")
+    public ResponseEntity<String> verifyEmail(@RequestParam String token) {
+        log.info("Received email verification request for token: {}", token);
+        
+        try {
+            boolean isVerified = studentService.verifyEmail(token);
+            
+            if (isVerified) {
+                return ResponseEntity.ok("Email verified successfully");
+            } else {
+                return ResponseEntity.badRequest().body("Invalid or expired verification token");
+            }
+        } catch (Exception e) {
+            log.error("Error during email verification for tokena: {}", token, e);
+            return ResponseEntity.internalServerError().body("Internal server error during email verification");
+        }
+    }
+
+    @PostMapping("/resend-verification")
+    public ResponseEntity<String> resendVerification(@RequestParam String email) {
+        log.info("Received resend verification request for email: {}", email);
+        
+        try {
+            boolean isSent = studentService.resendVerificationEmail(email);
+            
+            if (isSent) {
+                return ResponseEntity.ok("Verification email sent successfully");
+            } else {
+                return ResponseEntity.badRequest().body("Failed to send verification email");
+            }
+        } catch (Exception e) {
+            log.error("Error during resend verification for email: {}", email, e);
+            return ResponseEntity.internalServerError().body("Internal server error");
+        }
+    }
+
+    // Simple health check endpoint
+    @GetMapping("/health")
+    public ResponseEntity<String> healthCheck() {
+        return ResponseEntity.ok("Auth service is running");
+    }
+}

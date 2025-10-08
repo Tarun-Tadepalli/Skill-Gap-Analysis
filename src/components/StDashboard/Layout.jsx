@@ -46,10 +46,11 @@ export default function Layout({ children }) {
 
   const navItems = [
     { name: 'Dashboard', icon: LayoutDashboard, color: 'from-blue-500 to-cyan-500', path: '/dashboard' },
-    { name: 'My Profile', icon: Brain, color: 'from-purple-500 to-pink-500', path: '/profile' },
+    { name: 'My Skills', icon: Brain, color: 'from-purple-500 to-pink-500', path: '/skills' },
     { name: 'Skill Gap Analysis', icon: BarChart3, color: 'from-green-500 to-emerald-500', path: '/skillgap' },
     { name: 'Recommendations', icon: Lightbulb, color: 'from-orange-500 to-amber-500', path: '/recommendations' },
     { name: 'Training Platforms', icon: GraduationCap, color: 'from-red-500 to-orange-500', path: '/training' },
+    { name: 'My Profile', icon: User, color: 'from-purple-500 to-pink-500', path: '/profile' },
   ];
 
   // Helper function to check if a nav item is active
