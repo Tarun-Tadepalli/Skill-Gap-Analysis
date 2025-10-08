@@ -1,0 +1,149 @@
+@import "tailwindcss";
+
+html, body, #root {
+  height: 100%;
+}
+
+
+/* === Fixed Clean Hover Button === */
+.btn-clean {
+  appearance: none;
+  background-color: transparent;
+  border: 2px solid;
+  border-radius: 9999px; /* fully rounded like pill */
+  padding: 0.5rem 1.5rem; /* smaller height & width */
+  font-size: 14px; /* reduce font size */
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 300ms cubic-bezier(.23, 1, 0.32, 1);
+  box-sizing: border-box;
+}
+
+/* Default light mode */
+.btn-clean.light {
+  border-color: #2563eb;  /* blue-600 */
+  color: #2563eb;
+}
+.btn-clean.light:hover {
+  background-color: #2563eb;
+  color: #ffffff; /* text stays visible */
+  box-shadow: rgba(37, 99, 235, 0.4) 0 4px 10px;
+  transform: translateY(-2px);
+}
+
+/* Default dark mode */
+.btn-clean.dark {
+  border-color: #a855f7;  /* purple-500 */
+  color: #a855f7;
+}
+.btn-clean.dark:hover {
+  background-color: #a855f7;
+  color: #ffffff; /* text stays visible */
+  box-shadow: rgba(168, 85, 247, 0.4) 0 4px 10px;
+  transform: translateY(-2px);
+}
+
+/* Active (click) state */
+.btn-clean:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --primary-gradient: linear-gradient(90deg, #0072ff 0%, #00c6ff 100%);
+  --neon-gradient: linear-gradient(90deg, #0072ff 0%, #7700ff 100%);
+  --dark-bg: #001733;
+  --light-bg: #f0f7ff;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+body.dark {
+  background-color: var(--dark-bg);
+  color: white;
+}
+
+body.light {
+  background-color: var(--light-bg);
+  color: #333;
+}
+
+.glassmorphism {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark .glassmorphism {
+  background: rgba(0, 23, 51, 0.7);
+}
+
+.glow-border {
+  box-shadow: 0 0 5px rgba(0, 114, 255, 0.5),
+              0 0 10px rgba(0, 114, 255, 0.3),
+              0 0 15px rgba(0, 114, 255, 0.2);
+}
+
+.neon-text {
+  background: var(--neon-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-size: 200% auto;
+  animation: sheen 3s infinite;
+}
+
+.circular-progress {
+  transform: rotate(-90deg);
+}
+
+.progress-ring-circle {
+  transition: stroke-dashoffset 0.5s ease;
+}
+
+/* 3D Card Effect */
+.card-3d {
+  transform: perspective(1000px) rotateX(0deg) rotateY(0deg);
+  transform-style: preserve-3d;
+  transition: transform 0.5s ease, box-shadow 0.5s ease;
+}
+
+.card-3d:hover {
+  transform: perspective(1000px) rotateX(5deg) rotateY(5deg) translateY(-5px);
+  box-shadow: 0 20px 30px rgba(0, 0, 0, 0.2);
+}
+
+/* Particle animation */
+@keyframes particle-move {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(var(--tx), var(--ty));
+  }
+}
+
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.3;
+  animation: particle-move 15s infinite alternate;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
