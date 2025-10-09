@@ -1,0 +1,75 @@
+package com.cp.workskillai.controller;
+
+import com.cp.workskillai.dto.DashboardResponse;
+import com.cp.workskillai.models.UserProfile;
+import com.cp.workskillai.service.DashboardService;
+import com.cp.workskillai.service.ProfileService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@Slf4j
+@RestController
+@RequestMapping("/api")
+@RequiredArgsConstructor
+@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:5173"})
+public class DashboardController {
+
+    private final DashboardService dashboardService;
+    private final ProfileService profileService;
+
+    @GetMapping("/dashboard")
+    public ResponseEntity<DashboardResponse> getDashboardData(@AuthenticationPrincipal UserDetails userDetails) {
+        try {
+            String userId = userDetails.getUsername(); // Assuming username is userId
+            log.info("Fetching dashboard data for user: {}", userId);
+            
+            DashboardResponse dashboardData = dashboardService.getDashboardData(userId);
+            return ResponseEntity.ok(dashboardData);
+        } catch (Exception e) {
+            log.error("Error fetching dashboard data for user: {}", userDetails.getUsername(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @GetMapping("/user/profile")
+    public ResponseEntity<Map<String, Object>> getUserProfile(@AuthenticationPrincipal UserDetails userDetails) {
+        try {
+            String userId = userDetails.getUsername();
+            log.info("Fetching user profile for: {}", userId);
+            
+            UserProfile profile = profileService.getProfile(userId);
+            
+            // Check if profile is complete (customize based on your requirements)
+            boolean isProfileComplete = isProfileComplete(profile);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", profile.getId());
+            response.put("name", profile.getName());
+            response.put("email", profile.getEmail());
+            response.put("isProfileComplete", isProfileComplete);
+            response.put("profile", profile);
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error fetching user profile for user: {}", userDetails.getUsername(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    private boolean isProfileComplete(UserProfile profile) {
+        if (profile == null) return false;
+        
+        // Define your profile completion criteria
+        return profile.getName() != null && !profile.getName().trim().isEmpty() &&
+               profile.getEmail() != null && !profile.getEmail().trim().isEmpty() &&
+               profile.getSkills() != null && !profile.getSkills().isEmpty() &&
+               profile.getExperience() != null && !profile.getExperience().isEmpty();
+    }
+}

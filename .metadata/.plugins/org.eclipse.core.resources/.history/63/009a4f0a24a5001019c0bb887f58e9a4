@@ -1,0 +1,455 @@
+package com.cp.workskillai.service.impl;
+
+import com.cp.workskillai.dto.ProfileUpdateRequest;
+import com.cp.workskillai.dto.ResumeAnalysisResponse;
+import com.cp.workskillai.models.*;
+import com.cp.workskillai.repository.ResumeRepository;
+import com.cp.workskillai.repository.StudentRepository;
+import com.cp.workskillai.repository.UserProfileRepository;
+import com.cp.workskillai.service.ProfileService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class ProfileServiceImpl implements ProfileService {
+
+    private final UserProfileRepository userProfileRepository;
+    private final ResumeRepository resumeRepository;
+    private final StudentRepository studentRepository;
+    private final GeminiAIService geminiAIService;
+
+    @Override
+    public UserProfile getProfile(String userId) {
+        log.info("Fetching profile for user: {}", userId);
+        return userProfileRepository.findByUserId(userId)
+                .orElseGet(() -> createDefaultProfile(userId));
+    }
+
+    @Override
+    public UserProfile updateProfile(String userId, ProfileUpdateRequest request) {
+        log.info("Updating profile for user: {}", userId);
+        
+        UserProfile profile = userProfileRepository.findByUserId(userId)
+                .orElseGet(() -> createDefaultProfile(userId));
+        
+        // Update personal information
+        profile.setFullName(request.getFullName());
+        profile.setEmail(request.getEmail());
+        profile.setContactNumber(request.getContactNumber());
+        profile.setLocation(request.getLocation());
+        profile.setLinkedInUrl(request.getLinkedInUrl());
+        profile.setGithubUrl(request.getGithubUrl());
+        profile.setPortfolioUrl(request.getPortfolioUrl());
+        
+        // Update professional information
+        profile.setTitle(request.getTitle());
+        profile.setSummary(request.getSummary());
+        profile.setTechnicalSkills(request.getTechnicalSkills());
+        profile.setSoftSkills(request.getSoftSkills());
+        profile.setLanguages(request.getLanguages());
+        profile.setTotalExperience(request.getTotalExperience());
+        
+        // Update collections
+        profile.setEducation(request.getEducation());
+        profile.setExperience(request.getExperience());
+        profile.setCertifications(request.getCertifications());
+        profile.setProjects(request.getProjects());
+        
+        // Update settings
+        profile.setIsPublic(request.getIsPublic() != null ? request.getIsPublic() : true);
+        profile.setSeekingOpportunities(request.getSeekingOpportunities() != null ? request.getSeekingOpportunities() : true);
+        profile.setPreferredRoles(request.getPreferredRoles());
+        profile.setExpectedSalary(request.getExpectedSalary());
+        profile.setNoticePeriod(request.getNoticePeriod());
+        
+        profile.setUpdatedAt(LocalDateTime.now().toString());
+        
+        UserProfile savedProfile = userProfileRepository.save(profile);
+        log.info("Profile updated successfully for user: {}", userId);
+        
+        return savedProfile;
+    }
+
+    @Override
+    public UserProfile createProfile(String userId, ProfileUpdateRequest request) {
+        log.info("Creating new profile for user: {}", userId);
+        
+        Student student = studentRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Student not found: " + userId));
+        
+        UserProfile profile = UserProfile.builder()
+                .userId(userId)
+                .fullName(request.getFullName() != null ? request.getFullName() : student.getFirstName() + " " + student.getLastName())
+                .email(request.getEmail() != null ? request.getEmail() : student.getEmail())
+                .contactNumber(request.getContactNumber())
+                .location(request.getLocation())
+                .linkedInUrl(request.getLinkedInUrl())
+                .githubUrl(request.getGithubUrl())
+                .portfolioUrl(request.getPortfolioUrl())
+                .title(request.getTitle())
+                .summary(request.getSummary())
+                .technicalSkills(request.getTechnicalSkills())
+                .softSkills(request.getSoftSkills())
+                .languages(request.getLanguages())
+                .totalExperience(request.getTotalExperience())
+                .education(request.getEducation())
+                .experience(request.getExperience())
+                .certifications(request.getCertifications())
+                .projects(request.getProjects())
+                .isPublic(request.getIsPublic() != null ? request.getIsPublic() : true)
+                .seekingOpportunities(request.getSeekingOpportunities() != null ? request.getSeekingOpportunities() : true)
+                .preferredRoles(request.getPreferredRoles())
+                .expectedSalary(request.getExpectedSalary())
+                .noticePeriod(request.getNoticePeriod())
+                .createdAt(LocalDateTime.now().toString())
+                .updatedAt(LocalDateTime.now().toString())
+                .build();
+        
+        UserProfile savedProfile = userProfileRepository.save(profile);
+        log.info("New profile created for user: {}", userId);
+        
+        return savedProfile;
+    }
+
+    @Override
+    public ResumeAnalysisResponse uploadAndAnalyzeResume(String userId, MultipartFile file) {
+        log.info("Uploading and analyzing resume for user: {}", userId);
+        
+        try {
+            // Validate file
+            validateFile(file);
+            
+            // Check and enforce 4-resume limit
+            enforceResumeLimit(userId);
+            
+            // Create and save resume document
+            ResumeDocument resume = createResumeDocument(userId, file);
+            ResumeDocument savedResume = resumeRepository.save(resume);
+            
+            // Analyze resume with AI
+            Map<String, Object> analysisResult = geminiAIService.analyzeResume(file);
+            
+            // Update resume with analysis results
+            updateResumeWithAnalysis(savedResume, analysisResult);
+            resumeRepository.save(savedResume);
+            
+            // Update or create user profile with extracted data
+            UserProfile updatedProfile = updateProfileFromResume(userId, savedResume);
+            
+            // Set as active resume
+            setActiveResume(savedResume.getId(), userId);
+            
+            log.info("Resume analysis completed successfully for user: {}", userId);
+            
+            return new ResumeAnalysisResponse(
+                true,
+                "Resume uploaded and analyzed successfully",
+                analysisResult,
+                savedResume.getId(),
+                updatedProfile.getId(),
+                savedResume.getConfidenceScore()
+            );
+            
+        } catch (Exception e) {
+            log.error("Error during resume upload and analysis for user: {}", userId, e);
+            throw new RuntimeException("Resume processing failed: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public List<ResumeDocument> getUserResumes(String userId) {
+        return resumeRepository.findByUserIdOrderByUploadDateDesc(userId);
+    }
+
+    @Override
+    public ResumeDocument getResumeById(String resumeId) {
+        return resumeRepository.findById(resumeId)
+                .orElseThrow(() -> new RuntimeException("Resume not found: " + resumeId));
+    }
+
+    @Override
+    public boolean deleteResume(String resumeId, String userId) {
+        ResumeDocument resume = resumeRepository.findByIdAndUserId(resumeId, userId)
+                .orElseThrow(() -> new RuntimeException("Resume not found or access denied"));
+        
+        resumeRepository.delete(resume);
+        
+        // Update active resume if needed
+        updateActiveResumeAfterDeletion(userId, resume);
+        
+        log.info("Resume deleted: {} for user: {}", resumeId, userId);
+        return true;
+    }
+
+    @Override
+    public boolean setActiveResume(String resumeId, String userId) {
+        // Deactivate all resumes for user
+        List<ResumeDocument> userResumes = resumeRepository.findByUserId(userId);
+        userResumes.forEach(resume -> {
+            resume.setIsActive(false);
+            resumeRepository.save(resume);
+        });
+        
+        // Activate specified resume
+        ResumeDocument activeResume = resumeRepository.findByIdAndUserId(resumeId, userId)
+                .orElseThrow(() -> new RuntimeException("Resume not found or access denied"));
+        activeResume.setIsActive(true);
+        resumeRepository.save(activeResume);
+        
+        // Update user profile with current resume ID
+        UserProfile profile = getProfile(userId);
+        profile.setCurrentResumeId(resumeId);
+        userProfileRepository.save(profile);
+        
+        log.info("Resume set as active: {} for user: {}", resumeId, userId);
+        return true;
+    }
+
+    @Override
+    public List<ResumeDocument> getResumeHistory(String userId) {
+        return resumeRepository.findTop4ByUserIdOrderByUploadDateDesc(userId);
+    }
+
+    @Override
+    public ResumeAnalysisResponse analyzeExistingResume(String resumeId) {
+        ResumeDocument resume = resumeRepository.findById(resumeId)
+                .orElseThrow(() -> new RuntimeException("Resume not found: " + resumeId));
+        
+        try {
+            MultipartFile virtualFile = createVirtualMultipartFile(resume);
+            Map<String, Object> analysisResult = geminiAIService.analyzeResume(virtualFile);
+            
+            updateResumeWithAnalysis(resume, analysisResult);
+            resumeRepository.save(resume);
+            
+            // Update user profile with new analysis
+            updateProfileFromResume(resume.getUserId(), resume);
+            
+            return new ResumeAnalysisResponse(
+                true,
+                "Resume re-analyzed successfully",
+                analysisResult,
+                resume.getId(),
+                getProfile(resume.getUserId()).getId(),
+                resume.getConfidenceScore()
+            );
+            
+        } catch (Exception e) {
+            log.error("Error re-analyzing resume: {}", resumeId, e);
+            throw new RuntimeException("Resume re-analysis failed: " + e.getMessage());
+        }
+    }
+
+    // Helper Methods
+    private UserProfile createDefaultProfile(String userId) {
+        Student student = studentRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Student not found: " + userId));
+        
+        UserProfile profile = UserProfile.builder()
+                .userId(userId)
+                .fullName(student.getFirstName() + " " + student.getLastName())
+                .email(student.getEmail())
+                .isPublic(true)
+                .seekingOpportunities(true)
+                .technicalSkills(new ArrayList<>())
+                .softSkills(new ArrayList<>())
+                .languages(new ArrayList<>())
+                .education(new ArrayList<>())
+                .experience(new ArrayList<>())
+                .certifications(new ArrayList<>())
+                .projects(new ArrayList<>())
+                .preferredRoles(new ArrayList<>())
+                .createdAt(LocalDateTime.now().toString())
+                .updatedAt(LocalDateTime.now().toString())
+                .build();
+        
+        return userProfileRepository.save(profile);
+    }
+
+    private void validateFile(MultipartFile file) {
+        if (file.isEmpty()) {
+            throw new RuntimeException("File is empty");
+        }
+        
+        String contentType = file.getContentType();
+        List<String> allowedTypes = Arrays.asList(
+            "application/pdf",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "text/plain"
+        );
+        
+        if (!allowedTypes.contains(contentType)) {
+            throw new RuntimeException("Invalid file type. Only PDF, DOCX, and TXT files are allowed.");
+        }
+        
+        if (file.getSize() > 5 * 1024 * 1024) {
+            throw new RuntimeException("File size must be less than 5MB");
+        }
+    }
+
+    private void enforceResumeLimit(String userId) {
+        long resumeCount = resumeRepository.countByUserId(userId);
+        if (resumeCount >= 4) {
+            List<ResumeDocument> userResumes = resumeRepository.findByUserIdOrderByUploadDateDesc(userId);
+            if (!userResumes.isEmpty()) {
+                ResumeDocument oldestResume = userResumes.get(userResumes.size() - 1);
+                resumeRepository.delete(oldestResume);
+                log.info("Deleted oldest resume to maintain limit: {}", oldestResume.getId());
+            }
+        }
+    }
+
+    private ResumeDocument createResumeDocument(String userId, MultipartFile file) throws IOException {
+        return ResumeDocument.builder()
+                .userId(userId)
+                .fileName(generateFileName(file.getOriginalFilename()))
+                .originalFileName(file.getOriginalFilename())
+                .fileType(file.getContentType())
+                .fileSize(file.getSize())
+                .fileData(file.getBytes())
+                .uploadDate(LocalDateTime.now())
+                .analysisComplete(false)
+                .isActive(false)
+                .confidenceScore(0.0)
+                .uploadSource("web_upload")
+                .build();
+    }
+
+    private void updateResumeWithAnalysis(ResumeDocument resume, Map<String, Object> analysisResult) {
+        resume.setFullName((String) analysisResult.getOrDefault("fullName", ""));
+        resume.setEmail((String) analysisResult.getOrDefault("email", ""));
+        resume.setContactNumber((String) analysisResult.getOrDefault("contactNumber", ""));
+        resume.setTitle((String) analysisResult.getOrDefault("title", ""));
+        resume.setSummary((String) analysisResult.getOrDefault("summary", ""));
+        resume.setTechnicalSkills((List<String>) analysisResult.getOrDefault("skills", new ArrayList<>()));
+        resume.setEducation((List<Education>) analysisResult.getOrDefault("education", new ArrayList<>()));
+        resume.setExperience((List<Experience>) analysisResult.getOrDefault("experience", new ArrayList<>()));
+        resume.setCertifications(convertToCertifications((List<String>) analysisResult.getOrDefault("certifications", new ArrayList<>())));
+        
+        resume.setAnalyzedDate(LocalDateTime.now());
+        resume.setAnalysisComplete(true);
+        resume.setConfidenceScore(0.85); // Default confidence score
+    }
+
+    private UserProfile updateProfileFromResume(String userId, ResumeDocument resume) {
+        UserProfile profile = getProfile(userId);
+        
+        // Only update empty fields with resume data (don't overwrite user edits)
+        if (profile.getFullName() == null || profile.getFullName().isEmpty()) {
+            profile.setFullName(resume.getFullName());
+        }
+        if (profile.getEmail() == null || profile.getEmail().isEmpty()) {
+            profile.setEmail(resume.getEmail());
+        }
+        if (profile.getContactNumber() == null || profile.getContactNumber().isEmpty()) {
+            profile.setContactNumber(resume.getContactNumber());
+        }
+        if (profile.getTitle() == null || profile.getTitle().isEmpty()) {
+            profile.setTitle(resume.getTitle());
+        }
+        if (profile.getSummary() == null || profile.getSummary().isEmpty()) {
+            profile.setSummary(resume.getSummary());
+        }
+        
+        // Merge skills (avoid duplicates)
+        if (profile.getTechnicalSkills() == null) {
+            profile.setTechnicalSkills(new ArrayList<>());
+        }
+        if (resume.getTechnicalSkills() != null) {
+            for (String skill : resume.getTechnicalSkills()) {
+                if (!profile.getTechnicalSkills().contains(skill)) {
+                    profile.getTechnicalSkills().add(skill);
+                }
+            }
+        }
+        
+        // Merge education
+        if (profile.getEducation() == null) {
+            profile.setEducation(new ArrayList<>());
+        }
+        if (resume.getEducation() != null) {
+            profile.getEducation().addAll(resume.getEducation());
+        }
+        
+        // Merge experience
+        if (profile.getExperience() == null) {
+            profile.setExperience(new ArrayList<>());
+        }
+        if (resume.getExperience() != null) {
+            profile.getExperience().addAll(resume.getExperience());
+        }
+        
+        // Merge certifications
+        if (profile.getCertifications() == null) {
+            profile.setCertifications(new ArrayList<>());
+        }
+        if (resume.getCertifications() != null) {
+            profile.getCertifications().addAll(resume.getCertifications());
+        }
+        
+        profile.setUpdatedAt(LocalDateTime.now().toString());
+        
+        return userProfileRepository.save(profile);
+    }
+
+    private void updateActiveResumeAfterDeletion(String userId, ResumeDocument deletedResume) {
+        if (deletedResume.getIsActive()) {
+            List<ResumeDocument> otherResumes = resumeRepository.findByUserIdOrderByUploadDateDesc(userId);
+            if (!otherResumes.isEmpty()) {
+                setActiveResume(otherResumes.get(0).getId(), userId);
+            } else {
+                // No resumes left, clear currentResumeId from profile
+                UserProfile profile = getProfile(userId);
+                profile.setCurrentResumeId(null);
+                userProfileRepository.save(profile);
+            }
+        }
+    }
+
+    private List<Certification> convertToCertifications(List<String> certificationNames) {
+        return certificationNames.stream()
+                .map(name -> Certification.builder()
+                        .name(name)
+                        .issuingOrganization("")
+                        .issueDate("")
+                        .expiryDate("")
+                        .credentialId("")
+                        .credentialUrl("")
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    private String generateFileName(String originalFileName) {
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String extension = originalFileName != null && originalFileName.contains(".") 
+                ? originalFileName.substring(originalFileName.lastIndexOf("."))
+                : "";
+        return "resume_" + timestamp + extension;
+    }
+
+    private MultipartFile createVirtualMultipartFile(ResumeDocument resume) {
+        return new MultipartFile() {
+            @Override public String getName() { return "file"; }
+            @Override public String getOriginalFilename() { return resume.getOriginalFileName(); }
+            @Override public String getContentType() { return resume.getFileType(); }
+            @Override public boolean isEmpty() { return resume.getFileData() == null || resume.getFileData().length == 0; }
+            @Override public long getSize() { return resume.getFileData().length; }
+            @Override public byte[] getBytes() throws IOException { return resume.getFileData(); }
+            @Override public InputStream getInputStream() throws IOException { return new ByteArrayInputStream(resume.getFileData()); }
+            @Override public void transferTo(File dest) throws IOException, IllegalStateException { Files.write(dest.toPath(), resume.getFileData()); }
+        };
+    }
+}

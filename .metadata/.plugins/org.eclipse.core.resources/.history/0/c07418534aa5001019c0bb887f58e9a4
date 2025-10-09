@@ -1,0 +1,172 @@
+package com.cp.workskillai.service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.*;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class GeminiAIService {
+
+    @Value("${gemini.api.key}")
+    private String geminiApiKey;
+
+    private final ObjectMapper objectMapper;
+
+    public Map<String, Object> analyzeResume(MultipartFile file) {
+        try {
+            log.info("Starting Gemini AI analysis for file: {}", file.getOriginalFilename());
+            
+            // Extract text from file
+            String resumeText = extractTextFromFile(file);
+            
+            // Prepare prompt for Gemini
+            String prompt = createAnalysisPrompt(resumeText);
+            
+            // Call Gemini API
+            String response = callGeminiAPI(prompt);
+            
+            // Parse response
+            Map<String, Object> result = parseGeminiResponse(response);
+            
+            log.info("Gemini AI analysis completed successfully");
+            return result;
+            
+        } catch (Exception e) {
+            log.error("Gemini AI analysis failed", e);
+            return getFallbackAnalysisData();
+        }
+    }
+
+    private String extractTextFromFile(MultipartFile file) throws Exception {
+        // Simple text extraction - in production, use libraries like Apache POI for DOCX, PDFBox for PDF
+        if (file.getContentType().equals("text/plain")) {
+            return new String(file.getBytes());
+        } else {
+            // For PDF and DOCX, return a basic text representation
+            // In production, implement proper text extraction
+            return "Resume File: " + file.getOriginalFilename() + "\n" +
+                   "Size: " + file.getSize() + " bytes\n" +
+                   "Type: " + file.getContentType() + "\n" +
+                   "Please implement proper text extraction for " + file.getContentType() + " files.";
+        }
+    }
+
+    private String createAnalysisPrompt(String resumeText) {
+        return """
+            Analyze this resume text and extract structured information. Return ONLY valid JSON.
+            
+            RESUME TEXT:
+            %s
+            
+            Extract into this exact JSON structure:
+            {
+              "fullName": "extracted full name",
+              "email": "extracted email",
+              "contactNumber": "extracted phone number",
+              "title": "extracted job title",
+              "skills": ["array of technical skills"],
+              "certifications": ["array of certification names"],
+              "education": [
+                {
+                  "degree": "degree name",
+                  "institution": "institution name", 
+                  "year": "graduation year"
+                }
+              ],
+              "experience": [
+                {
+                  "position": "job position",
+                  "company": "company name", 
+                  "duration": "employment duration",
+                  "description": "job description"
+                }
+              ],
+              "summary": "professional summary"
+            }
+            
+            Rules:
+            - Return ONLY valid JSON, no other text
+            - Use empty strings/arrays for missing data
+            - Remove any special characters that break JSON
+            """.formatted(resumeText.substring(0, Math.min(resumeText.length(), 3000)));
+    }
+
+    private String callGeminiAPI(String prompt) throws Exception {
+        String url = "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=" + geminiApiKey;
+        
+        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
+        connection.setRequestMethod("POST");
+        connection.setRequestProperty("Content-Type", "application/json");
+        connection.setDoOutput(true);
+        
+        String requestBody = """
+            {
+              "contents": [{
+                "parts": [{
+                  "text": "%s"
+                }]
+              }],
+              "generationConfig": {
+                "temperature": 0.1,
+                "topK": 40,
+                "topP": 0.95,
+                "maxOutputTokens": 2048
+              }
+            }
+            """.formatted(prompt.replace("\"", "\\\""));
+        
+        connection.getOutputStream().write(requestBody.getBytes());
+        
+        int responseCode = connection.getResponseCode();
+        if (responseCode != 200) {
+            throw new RuntimeException("Gemini API request failed with code: " + responseCode);
+        }
+        
+        BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+        StringBuilder response = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) {
+            response.append(line);
+        }
+        reader.close();
+        
+        return response.toString();
+    }
+
+    private Map<String, Object> parseGeminiResponse(String response) throws Exception {
+        // Parse the Gemini API response and extract the text content
+        Map<String, Object> responseMap = objectMapper.readValue(response, Map.class);
+        List<Map<String, Object>> candidates = (List<Map<String, Object>>) responseMap.get("candidates");
+        Map<String, Object> content = (Map<String, Object>) candidates.get(0).get("content");
+        List<Map<String, Object>> parts = (List<Map<String, Object>>) content.get("parts");
+        String text = (String) parts.get(0).get("text");
+        
+        // Clean and parse the JSON response
+        String cleanedJson = text.replace("```json", "").replace("```", "").trim();
+        return objectMapper.readValue(cleanedJson, Map.class);
+    }
+
+    private Map<String, Object> getFallbackAnalysisData() {
+        return Map.of(
+            "fullName", "",
+            "email", "",
+            "contactNumber", "",
+            "skills", List.of(),
+            "certifications", List.of(),
+            "education", List.of(),
+            "experience", List.of(),
+            "summary", ""
+        );
+    }
+}

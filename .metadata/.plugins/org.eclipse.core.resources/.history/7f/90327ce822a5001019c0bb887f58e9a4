@@ -1,0 +1,65 @@
+package com.cp.workskillai.models;
+
+import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import jakarta.validation.constraints.NotBlank;
+
+import java.time.LocalDateTime;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Document(collection = "resumes")
+public class ResumeDocument {
+    
+    @Id
+    private String id;
+    
+    @NotBlank
+    private String userId; // Reference to Student/User
+    
+    @NotBlank
+    private String fileName;
+    
+    private String originalFileName;
+    
+    @NotBlank
+    private String fileType; // pdf, docx, txt
+    
+    private Long fileSize;
+    
+    @NotBlank
+    private byte[] fileData; // Binary storage of resume
+    
+    private LocalDateTime uploadDate;
+    private LocalDateTime analyzedDate;
+    
+    // Analysis results
+    private ResumeData extractedData;
+    
+    private Boolean isActive; // Current resume
+    private Boolean analysisComplete;
+    
+    // Metadata
+    private String uploadSource; // "web_upload", "mobile", etc.
+    private String checksum; // File checksum for duplicates
+}
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+class ResumeData {
+    private String fullName;
+    private String email;
+    private String contactNumber;
+    private List<String> skills;
+    private List<String> certifications;
+    private List<Education> education;
+    private List<Experience> experience;
+    private String summary;
+    private Double confidenceScore; // AI analysis confidence
+}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import ReCAPTCHA from "react-google-recaptcha";
+import { useAuth } from "./AuthContext";
 
 const ProfessionalSignIn = () => {
   const [email, setEmail] = useState("");
@@ -12,6 +13,13 @@ const ProfessionalSignIn = () => {
   const [error, setError] = useState("");
   const formRef = useRef(null);
   const navigate = useNavigate();
+  const { login, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, navigate]);
 
   const toggleTheme = () => {
     setIsDarkTheme(!isDarkTheme);
@@ -167,46 +175,15 @@ const ProfessionalSignIn = () => {
     setError("");
 
     try {
-      const loginData = {
-        email: email.trim(),
-        password: password,
-        role: role,
-      };
-
-      const response = await fetch("http://localhost:2090/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(loginData),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        // Store token and user data
-        localStorage.setItem("token", data.token);
-        localStorage.setItem(
-          "user",
-          JSON.stringify({
-            id: data.userId,
-            email: data.email,
-            role: data.role,
-            firstName: data.firstName,
-            lastName: data.lastName,
-          })
-        );
-
-        console.log("Login successful:", data);
-
-        // Redirect based on role
-        if (data.role === "hr") {
-          navigate("/hr-dashboard");
-        } else {
-          navigate("/dashboard");
-        }
+      const result = await login(email.trim(), password, role);
+      
+      if (result.success) {
+        console.log("Login successful:", result.data);
+        
+        // Redirect based on role - the navigation will happen automatically
+        // because isAuthenticated will change and trigger the useEffect
       } else {
-        setError(data.message || "Login failed");
+        setError(result.message || "Login failed");
       }
     } catch (error) {
       console.error("Login error:", error);
@@ -215,7 +192,7 @@ const ProfessionalSignIn = () => {
       setIsLoading(false);
     }
   };
-
+  
   return (
     <div
       className={`min-h-screen flex flex-col transition-colors duration-500 ${

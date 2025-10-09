@@ -1,0 +1,25 @@
+spring.application.name=workskillai
+server.port=2090
+
+# JWT Configuration
+jwt.secret=GbXaL8p9Rr2sTv3yW5z7C0eF4hJ6kM1nQ3tU6w8yB2dE5gH7jK9mN1pQ3sV6x8z
+jwt.expiration=86400000
+
+# Gemini AI
+gemini.api.key=AIzaSyBLlFkcGC_qqVW_ABV3jTeFsIheYq0YTXU
+
+# File upload
+spring.servlet.multipart.max-file-size=5MB
+spring.servlet.multipart.max-request-size=5MB
+
+# MongoDB Configuration
+
+spring.data.mongodb.host=localhost
+spring.data.mongodb.port=27017
+spring.data.mongodb.database=workskillai
+spring.data.mongodb.authentication-database=admin
+
+# Logging
+
+logging.level.org.springframework.data.mongodb.core.MongoTemplate=DEBUG
+logging.level.org.springframework.web=INFO
