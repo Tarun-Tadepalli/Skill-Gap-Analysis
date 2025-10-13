@@ -1,0 +1,251 @@
+package com.cp.workskillai.service;
+
+import com.cp.workskillai.dto.DashboardResponse;
+import com.cp.workskillai.models.*;
+import com.cp.workskillai.repository.*;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class DashboardService {
+
+    private final UserProfileRepository userProfileRepository;
+    private final SkillRepository skillRepository;
+    private final TrainingRepository trainingRepository;
+    private final ResumeDocumentRepository resumeDocumentRepository;
+    private final ActivityRepository activityRepository;
+
+    public DashboardResponse getDashboardData(String userId) {
+        try {
+            UserProfile userProfile = userProfileRepository.findByUserId(userId)
+                    .orElseThrow(() -> new RuntimeException("User profile not found"));
+
+            // Fetch user's skills
+            List<Skill> userSkills = skillRepository.findByUserId(userId);
+            
+            // Fetch user's trainings
+            List<Training> userTrainings = trainingRepository.findByUserId(userId);
+            
+            // Fetch recent activities
+            List<Activity> recentActivities = activityRepository.findTop5ByUserIdOrderByCreatedAtDesc(userId);
+
+            // Calculate stats
+            Map<String, Object> stats = calculateStats(userSkills, userTrainings, userProfile);
+            
+            // Prepare skills data for dashboard
+            List<Map<String, Object>> skillsData = prepareSkillsData(userSkills);
+            
+            // Prepare progress data
+            List<Map<String, Object>> progressData = prepareProgressData(userProfile);
+            
+            // Prepare role match data
+            List<Map<String, Object>> roleMatchData = prepareRoleMatchData(userProfile);
+            
+            // Prepare recent activities
+            List<Map<String, Object>> activitiesData = prepareActivitiesData(recentActivities);
+
+            return DashboardResponse.builder()
+                    .stats(stats)
+                    .skills(skillsData)
+                    .progress(progressData)
+                    .roleMatches(roleMatchData)
+                    .recentActivities(activitiesData)
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Error generating dashboard data for user: {}", userId, e);
+            throw new RuntimeException("Failed to generate dashboard data");
+        }
+    }
+
+    private Map<String, Object> calculateStats(List<Skill> skills, List<Training> trainings, UserProfile profile) {
+        Map<String, Object> stats = new HashMap<>();
+        
+        int totalSkills = skills.size();
+        int completedTrainings = (int) trainings.stream()
+                .filter(t -> "COMPLETED".equals(t.getStatus()))
+                .count();
+        int pendingSkills = (int) skills.stream()
+                .filter(s -> s.getProficiencyLevel() != null && s.getProficiencyLevel() < 70)
+                .count();
+        
+        // Calculate roles fit based on skills and target roles
+        int rolesFit = calculateRolesFit(profile, skills);
+        
+        stats.put("totalSkills", totalSkills);
+        stats.put("completedTrainings", completedTrainings);
+        stats.put("pendingSkills", pendingSkills);
+        stats.put("rolesFit", rolesFit);
+        
+        return stats;
+    }
+
+    private int calculateRolesFit(UserProfile profile, List<Skill> skills) {
+        if (profile.getTargetRoles() == null || profile.getTargetRoles().isEmpty()) {
+            return 0;
+        }
+        
+        // Simple calculation - you can make this more sophisticated
+        Set<String> userSkillNames = skills.stream()
+                .map(Skill::getName)
+                .collect(Collectors.toSet());
+        
+        int fitCount = 0;
+        for (String targetRole : profile.getTargetRoles()) {
+            Set<String> requiredSkills = getRequiredSkillsForRole(targetRole);
+            if (userSkillNames.containsAll(requiredSkills)) {
+                fitCount++;
+            }
+        }
+        
+        return fitCount;
+    }
+
+    private Set<String> getRequiredSkillsForRole(String role) {
+        // This should come from your role definitions database
+        // For now, returning a simple mapping
+        Map<String, Set<String>> roleSkills = Map.of(
+            "Frontend Developer", Set.of("JavaScript", "React", "HTML", "CSS"),
+            "Backend Developer", Set.of("Java", "Spring Boot", "SQL", "REST API"),
+            "Full Stack Developer", Set.of("JavaScript", "React", "Java", "Spring Boot", "SQL"),
+            "DevOps Engineer", Set.of("Docker", "Kubernetes", "AWS", "CI/CD")
+        );
+        
+        return roleSkills.getOrDefault(role, Set.of());
+    }
+
+    private List<Map<String, Object>> prepareSkillsData(List<Skill> skills) {
+        return skills.stream()
+                .map(skill -> {
+                    Map<String, Object> skillData = new HashMap<>();
+                    skillData.put("name", skill.getName());
+                    skillData.put("level", skill.getProficiencyLevel() != null ? skill.getProficiencyLevel() : 0);
+                    skillData.put("icon", getSkillIcon(skill.getName()));
+                    skillData.put("color", getSkillColor(skill.getName()));
+                    return skillData;
+                })
+                .collect(Collectors.toList());
+    }
+
+    private List<Map<String, Object>> prepareProgressData(UserProfile profile) {
+        // Generate progress data for the last 6 months
+        List<Map<String, Object>> progressData = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
+        
+        for (int i = 5; i >= 0; i--) {
+            LocalDateTime month = now.minusMonths(i);
+            String monthName = month.getMonth().toString().substring(0, 3);
+            int progress = calculateMonthlyProgress(profile, month);
+            
+            Map<String, Object> monthData = new HashMap<>();
+            monthData.put("month", monthName);
+            monthData.put("progress", progress);
+            progressData.add(monthData);
+        }
+        
+        return progressData;
+    }
+
+    private int calculateMonthlyProgress(UserProfile profile, LocalDateTime month) {
+        // This should calculate progress based on activities, skills added, etc.
+        // Simplified implementation
+        Random random = new Random(profile.getId().hashCode() + month.getMonthValue());
+        return 40 + random.nextInt(50); // Random progress between 40-90%
+    }
+
+    private List<Map<String, Object>> prepareRoleMatchData(UserProfile profile) {
+        if (profile.getTargetRoles() == null) {
+            return List.of();
+        }
+        
+        List<Map<String, Object>> roleMatches = new ArrayList<>();
+        List<String> colors = List.of("#3B82F6", "#10B981", "#8B5CF6", "#F59E0B", "#EF4444");
+        
+        for (int i = 0; i < Math.min(profile.getTargetRoles().size(), 5); i++) {
+            String role = profile.getTargetRoles().get(i);
+            Map<String, Object> roleMatch = new HashMap<>();
+            roleMatch.put("name", role);
+            roleMatch.put("value", calculateRoleMatchPercentage(role, profile));
+            roleMatch.put("color", colors.get(i % colors.size()));
+            roleMatches.add(roleMatch);
+        }
+        
+        return roleMatches;
+    }
+
+    private int calculateRoleMatchPercentage(String role, UserProfile profile) {
+        // Simplified calculation - you can make this more sophisticated
+        Random random = new Random(role.hashCode() + profile.getId().hashCode());
+        return 60 + random.nextInt(35); // Random match between 60-95%
+    }
+
+    private List<Map<String, Object>> prepareActivitiesData(List<Activity> activities) {
+        return activities.stream()
+                .map(activity -> {
+                    Map<String, Object> activityData = new HashMap<>();
+                    activityData.put("action", activity.getAction());
+                    activityData.put("detail", activity.getDetails());
+                    activityData.put("time", formatTimeAgo(activity.getCreatedAt()));
+                    activityData.put("icon", getActivityIcon(activity.getAction()));
+                    activityData.put("type", getActivityType(activity.getAction()));
+                    return activityData;
+                })
+                .collect(Collectors.toList());
+    }
+
+    private String getSkillIcon(String skillName) {
+        Map<String, String> skillIcons = Map.of(
+            "React", "Code",
+            "JavaScript", "Code",
+            "Java", "Code",
+            "Python", "Brain",
+            "Node.js", "Database",
+            "SQL", "Database",
+            "AWS", "Cloud",
+            "Docker", "Cloud",
+            "Security", "Shield"
+        );
+        return skillIcons.getOrDefault(skillName, "Brain");
+    }
+
+    private String getSkillColor(String skillName) {
+        Map<String, String> skillColors = Map.of(
+            "React", "#61DAFB",
+            "JavaScript", "#F7DF1E",
+            "Java", "#3776AB",
+            "Python", "#3776AB",
+            "Node.js", "#68A063",
+            "SQL", "#4479A1",
+            "AWS", "#FF9900",
+            "Docker", "#2496ED",
+            "Security", "#4ADE80"
+        );
+        return skillColors.getOrDefault(skillName, "#3B82F6");
+    }
+
+    private String getActivityIcon(String action) {
+        if (action.contains("skill")) return "Code";
+        if (action.contains("training") || action.contains("completed")) return "Award";
+        if (action.contains("role") || action.contains("viewed")) return "Users";
+        if (action.contains("assessment")) return "Star";
+        return "Activity";
+    }
+
+    private String getActivityType(String action) {
+        if (action.contains("completed") || action.contains("added")) return "success";
+        if (action.contains("assessment")) return "warning";
+        return "info";
+    }
+
+    private String formatTimeAgo(LocalDateTime dateTime) {
+        // Implement time ago formatting logic
+        return "2 hours ago"; // Simplified
+    }
+}

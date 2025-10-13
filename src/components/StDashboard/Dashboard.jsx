@@ -1,12 +1,13 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import Layout from './Layout';
-import { 
-  Brain, 
-  Target, 
-  Clock, 
+import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
+import Layout from "./Layout";
+import {
+  Brain,
+  Target,
+  Clock,
   CheckCircle,
   Activity,
   Zap,
@@ -20,128 +21,190 @@ import {
   BarChart3,
   PieChart,
   TrendingUp,
-  ChevronRight
-} from 'lucide-react';
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  PieChart as RePieChart, 
-  Pie, 
+  ChevronRight,
+} from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart as RePieChart,
+  Pie,
   Cell,
   BarChart,
-  Bar
-} from 'recharts';
+  Bar,
+} from "recharts";
 
 export default function Dashboard() {
   const [isVisible, setIsVisible] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const [dashboardData, setDashboardData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [hasProfile, setHasProfile] = useState(false);
+  const navigate = useNavigate();
+
+  // Utility function to get user ID from JWT token
+  const getUserIdFromToken = (token) => {
+    if (!token) return null;
+    try {
+      const payload = token.split(".")[1];
+      const decodedPayload = JSON.parse(atob(payload));
+      return decodedPayload.sub || decodedPayload.userId || decodedPayload.id;
+    } catch (error) {
+      console.error("Error decoding token:", error);
+      return null;
+    }
+  };
+
+  // Function to get user ID from localStorage or token
+  const getUserId = () => {
+    const userData = localStorage.getItem("user");
+    if (userData) {
+      try {
+        const user = JSON.parse(userData);
+        return user.id || user.userId || user._id;
+      } catch (error) {
+        console.error("Error parsing user data:", error);
+      }
+    }
+    
+    const token = localStorage.getItem("authToken");
+    return getUserIdFromToken(token);
+  };
 
   useEffect(() => {
-    setIsVisible(true);
+    checkUserProfile();
   }, []);
 
-  const stats = [
-    { 
-      label: 'Total Skills Added', 
-      value: '24', 
-      change: '+12%',
-      icon: Brain,
-      color: 'from-blue-500 to-cyan-500',
-      trend: 'up'
-    },
-    { 
-      label: 'Roles You Fit', 
-      value: '8', 
-      change: '+33%',
-      icon: Target,
-      color: 'from-green-500 to-emerald-500',
-      trend: 'up'
-    },
-    { 
-      label: 'Pending Skills', 
-      value: '5', 
-      change: '-8%',
-      icon: Clock,
-      color: 'from-orange-500 to-amber-500',
-      trend: 'down'
-    },
-    { 
-      label: 'Completed Trainings', 
-      value: '12', 
-      change: '+25%',
-      icon: CheckCircle,
-      color: 'from-purple-500 to-pink-500',
-      trend: 'up'
+  const checkUserProfile = async () => {
+    try {
+      const token = localStorage.getItem("authToken");
+      const userId = getUserId();
+
+      if (!userId) {
+        console.error("No user ID found");
+        navigate("/profile");
+        return;
+      }
+
+      const response = await fetch(
+        `http://localhost:2090/api/user/profile/${userId}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.ok) {
+        const profileData = await response.json();
+        setUserData(profileData);
+
+        if (profileData.isProfileComplete) {
+          // User has complete profile, fetch dashboard data
+          setHasProfile(true);
+          fetchDashboardData(userId);
+        } else {
+          // User profile is incomplete, redirect to profile page
+          navigate("/profile");
+        }
+      } else if (response.status === 404) {
+        // No profile found, redirect to profile page
+        navigate("/profile");
+      } else {
+        console.error("Profile check failed:", response.status);
+        navigate("/profile");
+      }
+    } catch (error) {
+      console.error("Error checking profile:", error);
+      navigate("/profile");
     }
+  };
+
+  const fetchDashboardData = async (userId) => {
+    try {
+      const token = localStorage.getItem("authToken");
+
+      const response = await fetch(
+        `http://localhost:2090/api/dashboard/${userId}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setDashboardData(data);
+      } else {
+        console.error("Failed to fetch dashboard data:", response.status);
+      }
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+    } finally {
+      setLoading(false);
+      setIsVisible(true);
+    }
+  };
+
+  // Default data in case backend fails
+  const defaultStats = [
+    {
+      label: "Total Skills Added",
+      value: "0",
+      change: "+0%",
+      icon: Brain,
+      color: "from-blue-500 to-cyan-500",
+      trend: "up",
+    },
+    {
+      label: "Roles You Fit",
+      value: "0",
+      change: "+0%",
+      icon: Target,
+      color: "from-green-500 to-emerald-500",
+      trend: "up",
+    },
+    {
+      label: "Pending Skills",
+      value: "0",
+      change: "-0%",
+      icon: Clock,
+      color: "from-orange-500 to-amber-500",
+      trend: "down",
+    },
+    {
+      label: "Completed Trainings",
+      value: "0",
+      change: "+0%",
+      icon: CheckCircle,
+      color: "from-purple-500 to-pink-500",
+      trend: "up",
+    },
   ];
 
-  const skillsData = [
-    { name: 'React', level: 85, icon: Code, color: '#61DAFB' },
-    { name: 'Node.js', level: 78, icon: Database, color: '#68A063' },
-    { name: 'Python', level: 92, icon: Brain, color: '#3776AB' },
-    { name: 'AWS', level: 65, icon: Cloud, color: '#FF9900' },
-    { name: 'Security', level: 70, icon: Shield, color: '#4ADE80' },
-  ];
-
-  const progressData = [
-    { month: 'Jan', progress: 40 },
-    { month: 'Feb', progress: 55 },
-    { month: 'Mar', progress: 65 },
-    { month: 'Apr', progress: 78 },
-    { month: 'May', progress: 85 },
-    { month: 'Jun', progress: 92 },
-  ];
-
-  const roleMatchData = [
-    { name: 'Frontend', value: 85, color: '#3B82F6' },
-    { name: 'Backend', value: 70, color: '#10B981' },
-    { name: 'Full Stack', value: 78, color: '#8B5CF6' },
-    { name: 'DevOps', value: 60, color: '#F59E0B' },
-  ];
-
-  const activities = [
-    { 
-      action: 'Added skill', 
-      detail: 'React.js', 
-      time: '2 hours ago',
-      icon: Code,
-      type: 'success'
-    },
-    { 
-      action: 'Viewed role', 
-      detail: 'Frontend Developer', 
-      time: '4 hours ago',
-      icon: Users,
-      type: 'info'
-    },
-    { 
-      action: 'Completed training', 
-      detail: 'Advanced CSS', 
-      time: '1 day ago',
-      icon: Award,
-      type: 'success'
-    },
-    { 
-      action: 'Skill assessment', 
-      detail: 'Node.js Expert', 
-      time: '2 days ago',
-      icon: Star,
-      type: 'warning'
-    },
-  ];
+  const stats = dashboardData?.stats || defaultStats;
+  const skillsData = dashboardData?.skills || [];
+  const progressData = dashboardData?.progress || [];
+  const roleMatchData = dashboardData?.roleMatches || [];
+  const activities = dashboardData?.recentActivities || [];
 
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.1
-      }
-    }
+        staggerChildren: 0.1,
+      },
+    },
   };
 
   const itemVariants = {
@@ -150,12 +213,40 @@ export default function Dashboard() {
       y: 0,
       opacity: 1,
       transition: {
-        duration: 0.5
-      }
-    }
+        duration: 0.5,
+      },
+    },
   };
 
-  if (!isVisible) return null;
+  // Show loading only if user has profile but data is still loading
+  if (loading && hasProfile) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-screen">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full"
+          />
+        </div>
+      </Layout>
+    );
+  }
+
+  // Don't render anything if redirecting or no profile
+  if (!hasProfile || !isVisible) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-screen">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full"
+          />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -175,7 +266,7 @@ export default function Dashboard() {
             <div className="absolute -top-20 -right-20 w-40 h-40 bg-white rounded-full"></div>
             <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-cyan-300 rounded-full"></div>
           </div>
-          
+
           <div className="flex items-center space-x-6 relative z-10">
             <motion.div
               animate={{ rotate: [0, 360] }}
@@ -185,15 +276,15 @@ export default function Dashboard() {
               <Zap className="text-white" size={32} />
             </motion.div>
             <div className="flex-1">
-              <motion.h1 
+              <motion.h1
                 className="text-3xl lg:text-4xl font-bold mb-2"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
               >
-                Welcome back, Tarun! 👋
+                Welcome back, {userData?.name || "User"}! 👋
               </motion.h1>
-              <motion.p 
+              <motion.p
                 className="text-blue-100 text-lg mb-4"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -204,6 +295,7 @@ export default function Dashboard() {
               <motion.button
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
+                onClick={() => navigate("/skills")}
                 className="flex items-center space-x-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm px-6 py-3 rounded-xl transition-all duration-300"
               >
                 <span className="font-semibold">Continue Learning</span>
@@ -224,9 +316,9 @@ export default function Dashboard() {
               <motion.div
                 key={stat.label}
                 variants={itemVariants}
-                whileHover={{ 
+                whileHover={{
                   scale: 1.02,
-                  y: -5
+                  y: -5,
                 }}
                 className={`bg-gradient-to-br ${stat.color} rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 relative overflow-hidden group`}
               >
@@ -234,7 +326,7 @@ export default function Dashboard() {
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                   <div className="absolute -inset-10 bg-gradient-to-r from-white/10 to-white/5 transform rotate-12"></div>
                 </div>
-                
+
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-4">
                     <motion.div
@@ -244,13 +336,18 @@ export default function Dashboard() {
                     >
                       <Icon size={24} />
                     </motion.div>
-                    <motion.span 
+                    <motion.span
                       className={`text-sm font-semibold px-2 py-1 rounded-full flex items-center space-x-1 ${
-                        stat.trend === 'up' ? 'bg-green-500/20' : 'bg-red-500/20'
+                        stat.trend === "up"
+                          ? "bg-green-500/20"
+                          : "bg-red-500/20"
                       }`}
                       whileHover={{ scale: 1.1 }}
                     >
-                      <TrendingUp size={14} className={stat.trend === 'down' ? 'rotate-180' : ''} />
+                      <TrendingUp
+                        size={14}
+                        className={stat.trend === "down" ? "rotate-180" : ""}
+                      />
                       <span>{stat.change}</span>
                     </motion.span>
                   </div>
@@ -276,42 +373,36 @@ export default function Dashboard() {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                onClick={() => navigate("/planprogress")}
                 className="text-sm text-blue-500 hover:text-blue-600 flex items-center space-x-1"
               >
                 <span>View Details</span>
                 <ChevronRight size={16} />
               </motion.button>
             </div>
-            
+
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={progressData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis 
-                    dataKey="month" 
-                    stroke="#6b7280"
-                    fontSize={12}
-                  />
-                  <YAxis 
-                    stroke="#6b7280"
-                    fontSize={12}
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      background: '#ffffff',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      color: '#1f2937',
-                      boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
+                  <XAxis dataKey="month" stroke="#6b7280" fontSize={12} />
+                  <YAxis stroke="#6b7280" fontSize={12} />
+                  <Tooltip
+                    contentStyle={{
+                      background: "#ffffff",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                      color: "#1f2937",
+                      boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
                     }}
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="progress" 
-                    stroke="#3B82F6" 
+                  <Line
+                    type="monotone"
+                    dataKey="progress"
+                    stroke="#3B82F6"
                     strokeWidth={3}
-                    dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
-                    activeDot={{ r: 6, fill: '#2563eb' }}
+                    dot={{ fill: "#3B82F6", strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6, fill: "#2563eb" }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -327,7 +418,7 @@ export default function Dashboard() {
               <PieChart className="mr-2" size={24} />
               Role Match %
             </h2>
-            
+
             <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
                 <RePieChart>
@@ -344,19 +435,19 @@ export default function Dashboard() {
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip 
-                    contentStyle={{ 
-                      background: '#ffffff',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      color: '#1f2937',
-                      boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
+                  <Tooltip
+                    contentStyle={{
+                      background: "#ffffff",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                      color: "#1f2937",
+                      boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
                     }}
                   />
                 </RePieChart>
               </ResponsiveContainer>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-2 mt-4">
               {roleMatchData.map((role, index) => (
                 <motion.div
@@ -364,12 +455,17 @@ export default function Dashboard() {
                   whileHover={{ scale: 1.02, y: -2 }}
                   className="flex items-center space-x-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200"
                 >
-                  <div 
-                    className="w-3 h-3 rounded-full" 
+                  <div
+                    className="w-3 h-3 rounded-full"
                     style={{ backgroundColor: role.color }}
                   />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">{role.name}</span>
-                  <span className="text-sm font-bold ml-auto" style={{ color: role.color }}>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    {role.name}
+                  </span>
+                  <span
+                    className="text-sm font-bold ml-auto"
+                    style={{ color: role.color }}
+                  >
                     {role.value}%
                   </span>
                 </motion.div>
@@ -392,13 +488,14 @@ export default function Dashboard() {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                onClick={() => navigate("/skills")}
                 className="text-sm text-blue-500 hover:text-blue-600 flex items-center space-x-1"
               >
                 <span>View All</span>
                 <ChevronRight size={16} />
               </motion.button>
             </div>
-            
+
             <div className="space-y-4">
               {skillsData.map((skill, index) => {
                 const Icon = skill.icon;
@@ -412,9 +509,9 @@ export default function Dashboard() {
                     className="flex items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-all duration-200 group"
                   >
                     <div className="flex items-center space-x-3">
-                      <motion.div 
+                      <motion.div
                         className="p-2 rounded-lg"
-                        style={{ backgroundColor: skill.color + '20' }}
+                        style={{ backgroundColor: skill.color + "20" }}
                         whileHover={{ rotate: 360, scale: 1.1 }}
                         transition={{ duration: 0.5 }}
                       >
@@ -424,18 +521,24 @@ export default function Dashboard() {
                         {skill.name}
                       </span>
                     </div>
-                    
+
                     <div className="flex items-center space-x-3">
                       <div className="w-24 bg-gray-300 dark:bg-gray-600 rounded-full h-2">
-                        <motion.div 
+                        <motion.div
                           className="h-2 rounded-full"
                           initial={{ width: 0 }}
                           animate={{ width: `${skill.level}%` }}
-                          transition={{ duration: 1, delay: 0.8 + index * 0.1 }}
+                          transition={{
+                            duration: 1,
+                            delay: 0.8 + index * 0.1,
+                          }}
                           style={{ backgroundColor: skill.color }}
                         />
                       </div>
-                      <span className="text-sm font-bold w-8" style={{ color: skill.color }}>
+                      <span
+                        className="text-sm font-bold w-8"
+                        style={{ color: skill.color }}
+                      >
                         {skill.level}%
                       </span>
                     </div>
@@ -464,19 +567,23 @@ export default function Dashboard() {
                 <ChevronRight size={16} />
               </motion.button>
             </div>
-            
+
             <div className="space-y-3">
               {activities.map((activity, index) => {
                 const Icon = activity.icon;
                 const getColor = (type) => {
-                  switch(type) {
-                    case 'success': return 'text-green-500';
-                    case 'warning': return 'text-yellow-500';
-                    case 'info': return 'text-blue-500';
-                    default: return 'text-gray-500';
+                  switch (type) {
+                    case "success":
+                      return "text-green-500";
+                    case "warning":
+                      return "text-yellow-500";
+                    case "info":
+                      return "text-blue-500";
+                    default:
+                      return "text-gray-500";
                   }
                 };
-                
+
                 return (
                   <motion.div
                     key={index}
@@ -488,25 +595,39 @@ export default function Dashboard() {
                   >
                     <motion.div
                       whileHover={{ scale: 1.1, rotate: 5 }}
-                      className={`p-2 rounded-lg ${getColor(activity.type)} bg-opacity-20`}
+                      className={`p-2 rounded-lg ${getColor(
+                        activity.type
+                      )} bg-opacity-20`}
                     >
                       <Icon size={16} />
                     </motion.div>
-                    
+
                     <div className="flex-1">
                       <p className="font-medium text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                        {activity.action}: <span className="text-blue-600 dark:text-blue-400">{activity.detail}</span>
+                        {activity.action}:{" "}
+                        <span className="text-blue-600 dark:text-blue-400">
+                          {activity.detail}
+                        </span>
                       </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{activity.time}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {activity.time}
+                      </p>
                     </div>
-                    
-                    <motion.div 
+
+                    <motion.div
                       className={`w-2 h-2 rounded-full ${
-                        activity.type === 'success' ? 'bg-green-400' : 
-                        activity.type === 'warning' ? 'bg-yellow-400' : 'bg-blue-400'
+                        activity.type === "success"
+                          ? "bg-green-400"
+                          : activity.type === "warning"
+                          ? "bg-yellow-400"
+                          : "bg-blue-400"
                       }`}
                       animate={{ scale: [1, 1.2, 1] }}
-                      transition={{ duration: 2, repeat: Infinity, delay: index * 0.5 }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        delay: index * 0.5,
+                      }}
                     />
                   </motion.div>
                 );
