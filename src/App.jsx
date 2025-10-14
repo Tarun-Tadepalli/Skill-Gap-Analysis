@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "./components/Auth/AuthContext.jsx"; // Adjust path as needed
+import { AuthProvider } from "./components/Auth/AuthContext.jsx";
 
 // Auth Components
 import Home from "./components/Home/homepage.jsx";
@@ -21,30 +21,110 @@ import RoleManagement from "./components/HrDashboard/RoleManagement.jsx";
 import ApplicationsReview from "./components/HrDashboard/Applications.jsx";
 import EmployeeAnalytics from "./components/HrDashboard/EmployeeAnalytics.jsx";
 
+// Protected Route component (optional - for routes that require auth)
+import ProtectedRoute from "./components/Auth/ProtectedRoute.jsx";
+
 function App() {
   return (
     <Router>
       <AuthProvider>
         <Routes>
-          {/* Public Routes */}
+          {/* Public Routes - Accessible without authentication */}
           <Route path="/" element={<Home />} />
           <Route path="/signin" element={<Signin />} />
           <Route path="/signup" element={<Signup />} />
 
-          {/* Student Dashboard Routes */}
-          <Route path="/dashboard" element={<Stdashboard />} />
-          <Route path="/skills" element={<MySkills />} />
-          <Route path="/profile" element={<ResumeAnalysisPage />} />
-          <Route path="/skillgap" element={<SkillGapAnalysis />} />
-          <Route path="/recommendations" element={<Recommendations />} />
-          <Route path="/training" element={<TrainingResources />} />
-          <Route path="/planprogress" element={<PlanAndProgress />} />
+          {/* Student Dashboard Routes - Protected (require authentication) */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Stdashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/skills"
+            element={
+              <ProtectedRoute>
+                <MySkills />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ResumeAnalysisPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/skillgap"
+            element={
+              <ProtectedRoute>
+                <SkillGapAnalysis />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/recommendations"
+            element={
+              <ProtectedRoute>
+                <Recommendations />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/training"
+            element={
+              <ProtectedRoute>
+                <TrainingResources />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/planprogress"
+            element={
+              <ProtectedRoute>
+                <PlanAndProgress />
+              </ProtectedRoute>
+            }
+          />
 
-          {/* HR Dashboard Routes */}
-          <Route path="/hrdashboard" element={<HrDashboard />} />
-          <Route path="/rolemanagement" element={<RoleManagement />} />
-          <Route path="/applications" element={<ApplicationsReview />} />
-          <Route path="/employeeanalytics" element={<EmployeeAnalytics />} />
+          {/* HR Dashboard Routes - Protected (require authentication) */}
+          <Route
+            path="/hrdashboard"
+            element={
+              <ProtectedRoute>
+                <HrDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/rolemanagement"
+            element={
+              <ProtectedRoute>
+                <RoleManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/applications"
+            element={
+              <ProtectedRoute>
+                <ApplicationsReview />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/employeeanalytics"
+            element={
+              <ProtectedRoute>
+                <EmployeeAnalytics />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </AuthProvider>
     </Router>
