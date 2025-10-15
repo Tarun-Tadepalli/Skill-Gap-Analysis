@@ -1,5 +1,4 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "./components/Auth/AuthContext.jsx"; // Adjust path as needed
 
 // Auth Components
 import Home from "./components/Home/homepage.jsx";
@@ -24,29 +23,27 @@ import EmployeeAnalytics from "./components/HrDashboard/EmployeeAnalytics.jsx";
 function App() {
   return (
     <Router>
-      <AuthProvider>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<Home />} />
-          <Route path="/signin" element={<Signin />} />
-          <Route path="/signup" element={<Signup />} />
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/" element={<Home />} />
+        <Route path="/signin" element={<Signin />} />
+        <Route path="/signup" element={<Signup />} />
 
-          {/* Student Dashboard Routes */}
-          <Route path="/dashboard" element={<Stdashboard />} />
-          <Route path="/skills" element={<MySkills />} />
-          <Route path="/profile" element={<ResumeAnalysisPage />} />
-          <Route path="/skillgap" element={<SkillGapAnalysis />} />
-          <Route path="/recommendations" element={<Recommendations />} />
-          <Route path="/training" element={<TrainingResources />} />
-          <Route path="/planprogress" element={<PlanAndProgress />} />
+        {/* Student Dashboard Routes */}
+        <Route path="/dashboard" element={<Stdashboard />} />
+        <Route path="/skills" element={<MySkills />} />
+        <Route path="/profile" element={<ResumeAnalysisPage />} />
+        <Route path="/skillgap" element={<SkillGapAnalysis />} />
+        <Route path="/recommendations" element={<Recommendations />} />
+        <Route path="/training" element={<TrainingResources />} />
+        <Route path="/planprogress" element={<PlanAndProgress />} />
 
-          {/* HR Dashboard Routes */}
-          <Route path="/hrdashboard" element={<HrDashboard />} />
-          <Route path="/rolemanagement" element={<RoleManagement />} />
-          <Route path="/applications" element={<ApplicationsReview />} />
-          <Route path="/employeeanalytics" element={<EmployeeAnalytics />} />
-        </Routes>
-      </AuthProvider>
+        {/* HR Dashboard Routes */}
+        <Route path="/hrdashboard" element={<HrDashboard />} />
+        <Route path="/rolemanagement" element={<RoleManagement />} />
+        <Route path="/applications" element={<ApplicationsReview />} />
+        <Route path="/employeeanalytics" element={<EmployeeAnalytics />} />
+      </Routes>
     </Router>
   );
 }
