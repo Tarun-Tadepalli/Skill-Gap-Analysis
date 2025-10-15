@@ -112,8 +112,12 @@ const ResumeAnalysisPage = () => {
   // Load user profile
   const loadUserProfile = async (userId) => {
     try {
-      const response = await apiCall(
-        `http://localhost:2090/api/profile/${userId}`
+      const response = await fetch(
+        `http://localhost:2090/api/profile/${userId}`,
+        {
+          method: "GET",
+          credentials: "include",
+        }
       );
 
       if (response.ok) {
@@ -139,8 +143,12 @@ const ResumeAnalysisPage = () => {
   // Load resume history
   const loadResumeHistory = async (userId) => {
     try {
-      const response = await apiCall(
-        `http://localhost:2090/api/profile/${userId}/resumes/history`
+      const response = await fetch(
+        `http://localhost:2090/api/profile/${userId}/resumes/history`,
+        {
+          method: "GET",
+          credentials: "include",
+        }
       );
 
       if (response.ok) {

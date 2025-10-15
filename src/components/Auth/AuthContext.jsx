@@ -26,30 +26,33 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const checkAuthStatus = async () => {
-    try {
-      const response = await fetch('http://localhost:2090/api/auth/validate', {
-        method: 'GET',
-        credentials: 'include', // Important for cookies
-      });
+  try {
+    const response = await fetch('http://localhost:2090/api/auth/validate', {
+      method: 'GET',
+      credentials: 'include',
+    });
 
-      if (response.ok) {
-        // Token is valid, get user data from localStorage
-        const userData = localStorage.getItem('user');
-        if (userData) {
-          setUser(JSON.parse(userData));
-          setIsAuthenticated(true);
-        }
-      } else {
-        // Token is invalid or expired
-        await handleLogout();
+    if (response.ok) {
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        setUser(JSON.parse(userData));
+        setIsAuthenticated(true);
       }
-    } catch (error) {
-      console.error('Auth check failed:', error);
-      await handleLogout();
-    } finally {
-      setIsLoading(false);
+    } else {
+      // Token invalid or expired — clear state but don't redirect immediately
+      localStorage.removeItem('user');
+      setUser(null);
+      setIsAuthenticated(false);
     }
-  };
+  } catch (error) {
+    console.error('Auth check failed:', error);
+    setUser(null);
+    setIsAuthenticated(false);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   const login = async (email, password, role) => {
     try {
@@ -88,23 +91,22 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      // Call logout endpoint to clear cookie
-      await fetch('http://localhost:2090/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
-    } catch (error) {
-      console.error('Logout API error:', error);
-    } finally {
-      // Clear frontend state regardless of API call result
-      localStorage.removeItem('user');
-      setUser(null);
-      setIsAuthenticated(false);
-      navigate('/signin');
-    }
-  };
+  const handleLogout = async (redirect = true) => {
+  try {
+    await fetch('http://localhost:2090/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    });
+  } catch (error) {
+    console.error('Logout API error:', error);
+  } finally {
+    localStorage.removeItem('user');
+    setUser(null);
+    setIsAuthenticated(false);
+    if (redirect) navigate('/signin');
+  }
+};
+
 
   // Auto-logout when token expires (check every minute)
   useEffect(() => {
