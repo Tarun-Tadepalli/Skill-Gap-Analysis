@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 INDEX VERSION 1.134+C:\Users\DELL\Desktop\skill-gap-analysis\.metadata\.plugins\org.eclipse.jdt.core
 1310698220.index
 543199086.index
@@ -47,6 +48,29 @@ INDEX VERSION 1.134+C:\Users\DELL\Desktop\skill-gap-analysis\.metadata\.plugins\
 3226514453.index
 3256324758.index
 2743374773.index
+=======
+INDEX VERSION 1.134+D:\Capstone Project\skill-gap-analysis\.metadata\.plugins\org.eclipse.jdt.core
+3386514994.index
+282482133.index
+3883918361.index
+1679291607.index
+3400396342.index
+2966158250.index
+3156509294.index
+551238646.index
+123236239.index
+3120266632.index
+3042055520.index
+3902198044.index
+2388337360.index
+1876232473.index
+4263849331.index
+1410793652.index
+421792959.index
+1918461893.index
+2020508016.index
+1028143319.index
+>>>>>>> 5ccdac01bb4054428088d9fa9e21e309b81dba0e
 1865797976.index
 3008786624.index
 57833915.index
@@ -78,6 +102,7 @@ INDEX VERSION 1.134+C:\Users\DELL\Desktop\skill-gap-analysis\.metadata\.plugins\
 3175678006.index
 591911106.index
 3047245607.index
+<<<<<<< HEAD
 1381836823.index
 490420198.index
 420902550.index
@@ -104,3 +129,28 @@ INDEX VERSION 1.134+C:\Users\DELL\Desktop\skill-gap-analysis\.metadata\.plugins\
 2167110170.index
 2032848932.index
 1856006708.index
+=======
+201660911.index
+1984543131.index
+120076509.index
+2539885090.index
+1150327253.index
+3643889422.index
+587327626.index
+1548793936.index
+97612082.index
+3284137077.index
+1337083473.index
+1036953351.index
+3763953407.index
+889818205.index
+966430211.index
+3747930877.index
+3995528243.index
+3718773627.index
+3060809743.index
+1464245383.index
+3034968979.index
+3995566372.index
+2723174316.index
+>>>>>>> 5ccdac01bb4054428088d9fa9e21e309b81dba0e
